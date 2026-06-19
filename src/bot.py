@@ -1,6 +1,8 @@
 from telegram.ext import Application, ApplicationBuilder, ContextTypes
 from src.utils.logger import logger
 from src.modules.transcriber import TranscriberModule
+from src.modules.translator import TranslatorModule
+from src.modules.monitor import MonitorModule
 import config
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -19,7 +21,9 @@ def create_app() -> Application:
     # List of modular extensions to load
     # To add more tools to this multitool bot, simply implement BaseModule and add here
     modules = [
-        TranscriberModule()
+        TranscriberModule(),
+        TranslatorModule(),
+        MonitorModule()
     ]
 
     # Load each module
