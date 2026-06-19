@@ -1,3 +1,5 @@
+import os
+import shutil
 import asyncio
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageHandler, filters
@@ -21,6 +23,20 @@ async def post_init(application: Application) -> None:
 async def post_shutdown(application: Application) -> None:
     """Triggered on bot shutdown. Closes the HTTP/WS diagnostics server."""
     await dashboard_server.stop()
+
+def startup_cleanup() -> None:
+    """Wipes all contents of the download directory at boot time to prevent resource leakage."""
+    if os.path.exists(config.DOWNLOAD_DIR):
+        logger.info(f"Running startup cleanup for directory: {config.DOWNLOAD_DIR}")
+        for item in os.listdir(config.DOWNLOAD_DIR):
+            item_path = os.path.join(config.DOWNLOAD_DIR, item)
+            try:
+                if os.path.isfile(item_path) or os.path.islink(item_path):
+                    os.unlink(item_path)
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+            except Exception as e:
+                logger.warning(f"Failed to clear {item_path} during startup: {e}")
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a message if possible."""
@@ -53,6 +69,9 @@ async def fallback_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
 def create_app() -> Application:
     """Builds and returns the Application instance with loaded modules."""
+    # Clear any residual downloaded files from past runs
+    startup_cleanup()
+
     if not config.TELEGRAM_BOT_TOKEN:
         logger.critical("TELEGRAM_BOT_TOKEN is not set. Cannot start bot.")
         raise ValueError("Missing TELEGRAM_BOT_TOKEN config.")

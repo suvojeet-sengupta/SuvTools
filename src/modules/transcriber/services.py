@@ -45,7 +45,7 @@ class TranscriptionService:
             end_str = format_timestamp(segment.end)
             text = segment.text.strip()
             if text:
-                transcript_lines.append(f"[{start_str} -> {end_str}] {text}")
+                transcript_lines.append(f"`[{start_str} -> {end_str}]` {text}")
 
         # Join the segments with newlines
         return "\n".join(transcript_lines)

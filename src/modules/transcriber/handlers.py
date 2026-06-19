@@ -202,11 +202,12 @@ class TranscriberModule(BaseModule):
 
                 # Send file
                 await status_msg.delete()
-                await message.reply_document(
-                    document=open(txt_path, "rb"),
-                    filename=f"transcript_{os.path.splitext(file_name)[0]}.txt",
-                    caption="📄 Transcript is too long for a text message. Download the attachment above!"
-                )
+                with open(txt_path, "rb") as doc_file:
+                    await message.reply_document(
+                        document=doc_file,
+                        filename=f"transcript_{os.path.splitext(file_name)[0]}.txt",
+                        caption="📄 Transcript is too long for a text message. Download the attachment above!"
+                    )
 
         except asyncio.CancelledError:
             logger.warning(f"Job {job_id} was cancelled.")

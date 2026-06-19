@@ -75,7 +75,10 @@ class TranslatorModule(BaseModule):
                 translation_service.translate, text_to_translate, target_lang
             )
             # Send result
-            response_text = f"🌐 **Translated Text ({target_lang}):**\n\n{translation}"
+            # Format translated output beautifully using blockquotes for each line
+            quoted_translation = "\n".join([f"> {line}" for line in translation.split("\n") if line.strip()])
+            response_text = f"🌐 **Translated Text ({target_lang}):**\n\n{quoted_translation}"
+            
             # If output is too long, send as text file (same logic as transcription)
             if len(response_text) <= 4000:
                 await status_msg.edit_text(response_text, parse_mode="Markdown")
@@ -84,15 +87,18 @@ class TranslatorModule(BaseModule):
                 # Create a temporary file
                 import uuid
                 txt_path = os.path.join(config.DOWNLOAD_DIR, f"translation_{uuid.uuid4()}.txt")
-                with open(txt_path, "w", encoding="utf-8") as f:
-                    f.write(translation)
-                await message.reply_document(
-                    document=open(txt_path, "rb"),
-                    filename=f"translation_{target_lang}.txt",
-                    caption=f"📄 Translation output was too long to send as a message."
-                )
-                if os.path.exists(txt_path):
-                    os.remove(txt_path)
+                try:
+                    with open(txt_path, "w", encoding="utf-8") as f:
+                        f.write(translation)
+                    with open(txt_path, "rb") as doc_file:
+                        await message.reply_document(
+                            document=doc_file,
+                            filename=f"translation_{target_lang}.txt",
+                            caption=f"📄 Translation output was too long to send as a message."
+                        )
+                finally:
+                    if os.path.exists(txt_path):
+                        os.remove(txt_path)
         except Exception as e:
             logger.exception(f"Error handling translation: {e}")
             try:
