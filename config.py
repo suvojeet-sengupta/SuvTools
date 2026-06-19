@@ -22,6 +22,10 @@ MAX_CONCURRENT_JOBS = int(os.getenv("MAX_CONCURRENT_JOBS", "1"))
 # Temp storage for downloads
 DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "/tmp/transcriptions")
 
+# Web Monitor / Diagnostics Server Config
+MONITOR_PORT = int(os.getenv("MONITOR_PORT", "8080"))
+MONITOR_HOST = os.getenv("MONITOR_HOST", "0.0.0.0")
+
 # Security / Access Control (Optional: comma-separated list of Telegram User IDs or Usernames)
 # E.g. ALLOWED_USERS=12345678,your_username
 ALLOWED_USERS_RAW = os.getenv("ALLOWED_USERS", "")

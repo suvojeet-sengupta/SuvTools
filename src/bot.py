@@ -1,10 +1,23 @@
+import asyncio
 from telegram import Update
 from telegram.ext import Application, ApplicationBuilder, ContextTypes, MessageHandler, filters
 from src.utils.logger import logger
 from src.modules.transcriber import TranscriberModule
 from src.modules.translator import TranslatorModule
 from src.modules.monitor import MonitorModule
+from src.modules.monitor.server import DashboardServer
 import config
+
+# Create single instance of the Live Diagnostics Server
+dashboard_server = DashboardServer()
+
+async def post_init(application: Application) -> None:
+    """Triggered on bot startup. Starts the HTTP/WS diagnostics server."""
+    asyncio.create_task(dashboard_server.start())
+
+async def post_shutdown(application: Application) -> None:
+    """Triggered on bot shutdown. Closes the HTTP/WS diagnostics server."""
+    await dashboard_server.stop()
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a message if possible."""
@@ -33,8 +46,14 @@ def create_app() -> Application:
         logger.critical("TELEGRAM_BOT_TOKEN is not set. Cannot start bot.")
         raise ValueError("Missing TELEGRAM_BOT_TOKEN config.")
 
-    # Initialize the Application
-    app = ApplicationBuilder().token(config.TELEGRAM_BOT_TOKEN).build()
+    # Initialize the Application with post_init and post_shutdown hooks
+    app = (
+        ApplicationBuilder()
+        .token(config.TELEGRAM_BOT_TOKEN)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .build()
+    )
 
     # List of modular extensions to load
     # To add more tools to this multitool bot, simply implement BaseModule and add here

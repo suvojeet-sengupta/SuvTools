@@ -105,11 +105,22 @@ class MonitorModule(BaseModule):
         status_msg = await update.message.reply_text("🔍 Gathering system metrics...")
         try:
             metrics = await asyncio.to_thread(self._get_sys_info)
-            await status_msg.edit_text(metrics, parse_mode="Markdown")
+            dashboard_info = (
+                f"{metrics}\n\n"
+                f"⚡ **Live Web Dashboard** (WebSockets):\n"
+                f"• URL: `http://<your_vps_ip>:{config.MONITOR_PORT}/`"
+            )
+            await status_msg.edit_text(dashboard_info, parse_mode="Markdown")
         except Exception as e:
             logger.error(f"Failed to query system stats: {e}")
             await status_msg.edit_text(f"❌ Failed to fetch system diagnostics: {e}")
 
     async def handle_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """A lightweight ping/status diagnostic."""
-        await update.message.reply_text("🟢 Bot is online and running successfully under PM2!")
+        status_text = (
+            "🟢 **Bot is online and running successfully under PM2!**\n\n"
+            f"📊 **Real-time Diagnostics Web Portal** is active at:\n"
+            f"`http://<your_vps_ip>:{config.MONITOR_PORT}/`\n\n"
+            "Open this link in your browser to view real-time system charts (CPU, RAM, Disk, Queue sizes) streamed live via WebSockets!"
+        )
+        await update.message.reply_text(status_text, parse_mode="Markdown")
