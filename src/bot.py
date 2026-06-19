@@ -6,6 +6,7 @@ from src.modules.transcriber import TranscriberModule
 from src.modules.translator import TranslatorModule
 from src.modules.monitor import MonitorModule
 from src.modules.monitor.server import DashboardServer
+from src.modules.downloader import DownloaderModule
 import config
 
 # Create single instance of the Live Diagnostics Server
@@ -33,6 +34,9 @@ async def fallback_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "🌐 **Language Translation**:\n"
         "Use `/translate <lang_code> <text>` or reply to any transcription or message with `/translate <lang_code>` to translate it.\n"
         "• _Use `/languages` to see supported language codes._\n\n"
+        "🎥 **Social Video Downloader**:\n"
+        "Send or forward me any link from **YouTube, Facebook, Instagram Reels, or TikTok** and I will download and send you the video!\n"
+        "• _Use `/download <url>` or just send the link directly._\n\n"
         "💻 **VPS Diagnostics** (For Admins):\n"
         "• Use `/status` to check bot health status.\n"
         "• Use `/sysinfo` to view system resources (CPU load, memory, disk load).\n\n"
@@ -60,7 +64,8 @@ def create_app() -> Application:
     modules = [
         TranscriberModule(),
         TranslatorModule(),
-        MonitorModule()
+        MonitorModule(),
+        DownloaderModule()
     ]
 
     # Load each module
