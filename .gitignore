@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+.venv/
+ENV/
+env/
+
+# Environment variables (sensitive tokens)
+.env
+
+# Logs and runtime caches
+*.log
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Temporary and local downloads
+/tmp/
+downloads/
+*.wav
+*.mp3
+*.ogg
+*.txt
