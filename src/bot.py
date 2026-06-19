@@ -11,6 +11,7 @@ from src.modules.monitor.server import DashboardServer
 from src.modules.downloader import DownloaderModule
 from src.modules.devutils import DevUtilsModule
 from src.modules.imgcompressor import ImageCompressorModule
+from src.modules.commander import CommanderModule
 import config
 
 # Create single instance of the Live Diagnostics Server
@@ -52,17 +53,21 @@ async def fallback_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "🌐 **Language Translation**:\n"
         "Use `/translate <lang_code> <text>` or reply to any transcription or message with `/translate <lang_code>` to translate it.\n"
         "• _Use `/languages` to see supported language codes._\n\n"
+        "🐚 **VPS Remote Commander** (For Admins):\n"
+        "• Use `/run <bash command>` to execute shell tasks.\n"
+        "• Use `/files` to list the project directory files.\n"
+        "• Use `/getfile <filepath>` to download files from VPS.\n"
+        "• Reply to an attachment with `/upload` to save it to VPS.\n\n"
         "🛠️ **Developer Text Utilities**:\n"
         "• `/base64 <encode/decode> <text>`\n"
         "• `/url <encode/decode> <text>`\n"
         "• `/json <beautify/minify> <json_text>`\n"
-        "• `/hash <sha256/md5> <text>`\n"
-        "• _(You can also reply to any message with these commands)_\n\n"
+        "• `/hash <sha256/md5> <text>`\n\n"
         "📉 **Image Compressor & Converter**:\n"
-        "Send or forward any photo/image document, and I will prompt you with inline options to compress or convert format (JPEG, PNG, WebP) on demand.\n\n"
+        "Send any photo, and I will prompt you with inline options to compress or convert format (JPEG, PNG, WebP) on demand.\n\n"
         "💻 **VPS Diagnostics** (For Admins):\n"
         "• Use `/status` to check bot health status.\n"
-        "• Use `/sysinfo` to view system resources (CPU load, memory, disk load).\n\n"
+        "• Use `/sysinfo` to view system resources.\n\n"
         "📚 Type `/help` for detailed instructions."
     )
     await update.message.reply_text(help_text, parse_mode="Markdown")
@@ -92,7 +97,8 @@ def create_app() -> Application:
         TranslatorModule(),
         MonitorModule(),
         DevUtilsModule(),
-        ImageCompressorModule()
+        ImageCompressorModule(),
+        CommanderModule()
         # DownloaderModule() - Disabled for now
     ]
 
