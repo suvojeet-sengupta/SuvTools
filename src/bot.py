@@ -7,6 +7,8 @@ from src.modules.translator import TranslatorModule
 from src.modules.monitor import MonitorModule
 from src.modules.monitor.server import DashboardServer
 from src.modules.downloader import DownloaderModule
+from src.modules.devutils import DevUtilsModule
+from src.modules.imgcompressor import ImageCompressorModule
 import config
 
 # Create single instance of the Live Diagnostics Server
@@ -34,9 +36,14 @@ async def fallback_text_handler(update: Update, context: ContextTypes.DEFAULT_TY
         "🌐 **Language Translation**:\n"
         "Use `/translate <lang_code> <text>` or reply to any transcription or message with `/translate <lang_code>` to translate it.\n"
         "• _Use `/languages` to see supported language codes._\n\n"
-        "🎥 **Social Video Downloader**:\n"
-        "Send or forward me any link from **YouTube, Facebook, Instagram Reels, or TikTok** and I will download and send you the video!\n"
-        "• _Use `/download <url>` or just send the link directly._\n\n"
+        "🛠️ **Developer Text Utilities**:\n"
+        "• `/base64 <encode/decode> <text>`\n"
+        "• `/url <encode/decode> <text>`\n"
+        "• `/json <beautify/minify> <json_text>`\n"
+        "• `/hash <sha256/md5> <text>`\n"
+        "• _(You can also reply to any message with these commands)_\n\n"
+        "📉 **Image Compressor & Converter**:\n"
+        "Send or forward any photo/image document, and I will prompt you with inline options to compress or convert format (JPEG, PNG, WebP) on demand.\n\n"
         "💻 **VPS Diagnostics** (For Admins):\n"
         "• Use `/status` to check bot health status.\n"
         "• Use `/sysinfo` to view system resources (CPU load, memory, disk load).\n\n"
@@ -65,7 +72,9 @@ def create_app() -> Application:
         TranscriberModule(),
         TranslatorModule(),
         MonitorModule(),
-        DownloaderModule()
+        DevUtilsModule(),
+        ImageCompressorModule()
+        # DownloaderModule() - Disabled for now
     ]
 
     # Load each module
