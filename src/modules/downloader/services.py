@@ -23,6 +23,17 @@ class DownloaderService:
             'no_warnings': True,
         }
 
+        # Check for cookies file to authenticate and bypass rate limits/login requirements
+        cookies_paths = [
+            os.path.join(os.getcwd(), "cookies.txt"),
+            "/root/SuvTools/cookies.txt"
+        ]
+        for path in cookies_paths:
+            if os.path.exists(path):
+                ydl_opts['cookiefile'] = path
+                logger.info(f"Loaded yt-dlp cookies from: {path}")
+                break
+
         logger.info(f"Initiating video download via yt-dlp for URL: {url}")
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
