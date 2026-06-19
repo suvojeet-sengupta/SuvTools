@@ -1,14 +1,19 @@
 import os
 import asyncio
 import subprocess
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
+from telegram.error import TelegramError
 
 from src.modules.base import BaseModule
 from src.utils.logger import logger
 import config
 
 class MonitorModule(BaseModule):
+    def __init__(self):
+        # Maps chat_id -> active asyncio monitor Task
+        self.active_monitors = {}
+
     @property
     def name(self) -> str:
         return "monitor"
@@ -16,6 +21,7 @@ class MonitorModule(BaseModule):
     def register_handlers(self, application: Application) -> None:
         application.add_handler(CommandHandler("sysinfo", self.handle_sysinfo))
         application.add_handler(CommandHandler("status", self.handle_status))
+        application.add_handler(CallbackQueryHandler(self.handle_callback, pattern="^stop_monitor$"))
 
     def _is_allowed(self, update: Update) -> bool:
         """Verifies if the user is authorized to query system stats."""
@@ -67,7 +73,6 @@ class MonitorModule(BaseModule):
             lines = res.stdout.strip().split("\n")
             if len(lines) >= 2:
                 parts = lines[1].split()
-                # format: [filesystem, size, used, avail, use%, mounted]
                 disk_usage = f"{parts[2]} used / {parts[1]} total ({parts[4]} used)"
             else:
                 disk_usage = "N/A"
@@ -86,41 +91,116 @@ class MonitorModule(BaseModule):
         except Exception:
             uptime_str = "N/A"
 
+        # 5. Get current queue counts
+        try:
+            from src.modules.transcriber.handlers import queue_manager
+            active_jobs = len(queue_manager.active_jobs) if queue_manager else 0
+            waiting_jobs = len(queue_manager.waiting_jobs) if queue_manager else 0
+        except Exception:
+            active_jobs, waiting_jobs = 0, 0
+
         # Output compilation
         metrics = (
-            "💻 **VPS System Diagnostics:**\n\n"
             f"• **CPU Load**: `{cpu_load}`\n"
             f"• **RAM Usage**: `{ram_usage}`\n"
             f"• **Disk Usage (/)**: `{disk_usage}`\n"
-            f"• **Uptime**: `{uptime_str}`"
+            f"• **Server Uptime**: `{uptime_str}`\n"
+            f"• **Transcriber Queue**: `{active_jobs} active / {waiting_jobs} waiting`"
         )
         return metrics
 
     async def handle_sysinfo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Displays system resources info."""
+        """Displays system resources info and updates it in real-time."""
         if not self._is_allowed(update):
             await update.message.reply_text("⛔ You are not authorized to view system stats.")
             return
 
-        status_msg = await update.message.reply_text("🔍 Gathering system metrics...")
+        chat_id = update.effective_chat.id
+
+        # Setup Stop button
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🛑 Stop Live Monitor", callback_data="stop_monitor")]
+        ])
+
+        status_msg = await update.message.reply_text(
+            "🔍 Initializing Live Monitor...",
+            reply_markup=keyboard
+        )
+
+        # Cancel any active monitor loop in this chat to avoid duplicates
+        if chat_id in self.active_monitors:
+            old_task = self.active_monitors[chat_id]
+            old_task.cancel()
+
+        # Spawn a background live monitor task
+        task = asyncio.create_task(self._live_monitor_loop(chat_id, status_msg))
+        self.active_monitors[chat_id] = task
+
+    async def _live_monitor_loop(self, chat_id: int, message: Update.message):
+        """Runs the 3-second diagnostic message update loop."""
+        spinners = ["🟢", "🟡", "🔵", "🟣"]
+        iteration = 0
+        max_iterations = 60 # Run for 3 minutes max (60 * 3s = 180s)
+        
+        try:
+            while iteration < max_iterations:
+                metrics = await asyncio.to_thread(self._get_sys_info)
+                spinner = spinners[iteration % len(spinners)]
+                
+                text = (
+                    f"🖥️ **Live VPS Diagnostics** {spinner}\n\n"
+                    f"{metrics}\n\n"
+                    f"⚡ _Monitoring live. Auto-closes in {int((max_iterations - iteration) * 3)}s._"
+                )
+                
+                try:
+                    await message.edit_text(
+                        text,
+                        parse_mode="Markdown",
+                        reply_markup=message.reply_markup
+                    )
+                except TelegramError as e:
+                    # If message was deleted or can't be edited, break loop
+                    if "Message to edit not found" in str(e) or "Message is not modified" not in str(e):
+                        pass
+                
+                await asyncio.sleep(3)
+                iteration += 1
+
+            # End of loop: show final snapshot
+            await self._stop_monitoring_for_chat(chat_id, message)
+
+        except asyncio.CancelledError:
+            # Task was cancelled cleanly (e.g. via CallbackQuery button)
+            pass
+
+    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Processes the button clicks."""
+        query = update.callback_query
+        await query.answer()
+
+        chat_id = update.effective_chat.id
+        if query.data == "stop_monitor":
+            await self._stop_monitoring_for_chat(chat_id, query.message)
+
+    async def _stop_monitoring_for_chat(self, chat_id: int, message: Update.message):
+        """Stops the live updates and draws a static final snapshot."""
+        # Retrieve and cancel the running task
+        task = self.active_monitors.pop(chat_id, None)
+        if task and not task.done():
+            task.cancel()
+
         try:
             metrics = await asyncio.to_thread(self._get_sys_info)
-            dashboard_info = (
+            final_text = (
+                f"📊 **VPS Diagnostics (Snapshot)**\n\n"
                 f"{metrics}\n\n"
-                f"⚡ **Live Web Dashboard** (WebSockets):\n"
-                f"• URL: `http://<your_vps_ip>:{config.MONITOR_PORT}/`"
+                f"🛑 _Live monitoring has been stopped._"
             )
-            await status_msg.edit_text(dashboard_info, parse_mode="Markdown")
-        except Exception as e:
-            logger.error(f"Failed to query system stats: {e}")
-            await status_msg.edit_text(f"❌ Failed to fetch system diagnostics: {e}")
+            await message.edit_text(final_text, parse_mode="Markdown")
+        except Exception:
+            pass
 
     async def handle_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """A lightweight ping/status diagnostic."""
-        status_text = (
-            "🟢 **Bot is online and running successfully under PM2!**\n\n"
-            f"📊 **Real-time Diagnostics Web Portal** is active at:\n"
-            f"`http://<your_vps_ip>:{config.MONITOR_PORT}/`\n\n"
-            "Open this link in your browser to view real-time system charts (CPU, RAM, Disk, Queue sizes) streamed live via WebSockets!"
-        )
-        await update.message.reply_text(status_text, parse_mode="Markdown")
+        await update.message.reply_text("🟢 **Bot is online and healthy!**", parse_mode="Markdown")
